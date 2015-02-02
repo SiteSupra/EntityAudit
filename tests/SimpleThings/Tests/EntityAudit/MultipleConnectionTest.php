@@ -107,10 +107,12 @@ class MultipleConnectionTest extends \PHPUnit_Framework_TestCase
         $this->mainConnectionInstance->expects($this->never())
             ->method('executeQuery');
 
+        //entity persister uses prepare and then execute on stmt, so only prepare is called
         $this->mainConnectionInstance->expects($this->exactly(1))
             ->method('prepare')
             ->with($this->stringContains('INSERT INTO MultipleConnectionEntity'));
 
+        //ea uses executeUpdate when storing audit results
         $this->auditConnectionInstance->expects($this->once())
             ->method('executeUpdate')
             ->with($this->stringContains('INSERT INTO MultipleConnectionEntity_audit'));

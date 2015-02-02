@@ -115,9 +115,12 @@ class CreateSchemaListener implements EventSubscriber
 
             $schemaConfigProperty = $schemaReflection->getProperty('_schemaConfig');
             $schemaConfigProperty->setAccessible(true);
+            $schemaConfig = $schemaConfigProperty->getValue($schema);
 
-            foreach ($schemaConfigProperty->getValue($schema)->getDefaultTableOptions() as $name => $value) {
-                $revisionTable->addOption($name, $value);
+            if (method_exists($schemaConfig, 'getDefaultTableOptions')) {
+                foreach ($schemaConfigProperty->getValue($schema)->getDefaultTableOptions() as $name => $value) {
+                    $revisionTable->addOption($name, $value);
+                }
             }
         }
     }
@@ -150,9 +153,12 @@ class CreateSchemaListener implements EventSubscriber
 
             $schemaConfigProperty = $schemaReflection->getProperty('_schemaConfig');
             $schemaConfigProperty->setAccessible(true);
+            $schemaConfig = $schemaConfigProperty->getValue($schema);
 
-            foreach ($schemaConfigProperty->getValue($schema)->getDefaultTableOptions() as $name => $value) {
-                $revisionsTable->addOption($name, $value);
+            if (method_exists($schemaConfig, 'getDefaultTableOptions')) {
+                foreach ($schemaConfigProperty->getValue($schema)->getDefaultTableOptions() as $name => $value) {
+                    $revisionsTable->addOption($name, $value);
+                }
             }
         }
     }
