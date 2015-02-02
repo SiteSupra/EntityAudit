@@ -23,6 +23,8 @@
 
 namespace SimpleThings\EntityAudit\EventListener;
 
+use Doctrine\DBAL\Schema\Table;
+use Doctrine\DBAL\Schema\Visitor\CreateSchemaSqlCollector;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Doctrine\ORM\Tools\ToolEvents;
 use SimpleThings\EntityAudit\AuditManager;
@@ -76,7 +78,7 @@ class CreateSchemaListener implements EventSubscriber
 
         $schema = $eventArgs->getSchema();
         $entityTable = $eventArgs->getClassTable();
-        $revisionTable = $schema->createTable(
+        $revisionTable = new Table(
             $this->config->getTablePrefix().$entityTable->getName().$this->config->getTableSuffix()
         );
         foreach ($entityTable->getColumns() AS $column) {
@@ -95,17 +97,63 @@ class CreateSchemaListener implements EventSubscriber
         $pkColumns = $entityTable->getPrimaryKey()->getColumns();
         $pkColumns[] = $this->config->getRevisionFieldName();
         $revisionTable->setPrimaryKey($pkColumns);
+
+        if ($this->config->getConnection()) {
+            $collector = new CreateSchemaSqlCollector($this->config->getConnection()->getDatabasePlatform());
+
+            $revisionTable->visit($collector);
+
+            foreach ($collector->getQueries() as $query) {
+                $this->config->getConnection()->executeQuery($query);
+            }
+        } else {
+            //Schema::createTable
+            $schemaReflection = new \ReflectionClass('Doctrine\DBAL\Schema\Schema');
+            $addTableMethod = $schemaReflection->getMethod('_addTable');
+            $addTableMethod->setAccessible(true);
+            $addTableMethod->invoke($schema, $revisionTable);
+
+            $schemaConfigProperty = $schemaReflection->getProperty('_schemaConfig');
+            $schemaConfigProperty->setAccessible(true);
+
+            foreach ($schemaConfigProperty->getValue($schema)->getDefaultTableOptions() as $name => $value) {
+                $revisionTable->addOption($name, $value);
+            }
+        }
     }
 
     public function postGenerateSchema(GenerateSchemaEventArgs $eventArgs)
     {
         $schema = $eventArgs->getSchema();
-        $revisionsTable = $schema->createTable($this->config->getRevisionTableName());
+        $revisionsTable = new Table($this->config->getRevisionTableName());
         $revisionsTable->addColumn('id', $this->config->getRevisionIdFieldType(), array(
             'autoincrement' => true,
         ));
         $revisionsTable->addColumn('timestamp', 'datetime');
         $revisionsTable->addColumn('username', 'string');
         $revisionsTable->setPrimaryKey(array('id'));
+
+        if ($this->config->getConnection()) {
+            $collector = new CreateSchemaSqlCollector($this->config->getConnection()->getDatabasePlatform());
+
+            $revisionsTable->visit($collector);
+
+            foreach ($collector->getQueries() as $query) {
+                $this->config->getConnection()->executeQuery($query);
+            }
+        } else {
+            //Schema::createTable
+            $schemaReflection = new \ReflectionClass('Doctrine\DBAL\Schema\Schema');
+            $addTableMethod = $schemaReflection->getMethod('_addTable');
+            $addTableMethod->setAccessible(true);
+            $addTableMethod->invoke($schema, $revisionsTable);
+
+            $schemaConfigProperty = $schemaReflection->getProperty('_schemaConfig');
+            $schemaConfigProperty->setAccessible(true);
+
+            foreach ($schemaConfigProperty->getValue($schema)->getDefaultTableOptions() as $name => $value) {
+                $revisionsTable->addOption($name, $value);
+            }
+        }
     }
 }
