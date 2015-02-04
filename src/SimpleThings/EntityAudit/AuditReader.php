@@ -156,7 +156,7 @@ class AuditReader
         $this->em = $em;
         $this->config = $config;
         $this->metadataFactory = $factory;
-        $this->connection = $config->getConnection() ? $config->getConnection() : $this->em->getConnection();
+        $this->connection = $config->getConnection() ?: $this->em->getConnection();
         $this->platform = $this->getConnection()->getDatabasePlatform();
     }
 

@@ -29,6 +29,7 @@ use Doctrine\ORM\EntityManager;
 use SimpleThings\EntityAudit\AuditConfiguration;
 use SimpleThings\EntityAudit\AuditManager;
 use Doctrine\ORM\Mapping as ORM;
+use SimpleThings\EntityAudit\AuditReader;
 
 class MultipleConnectionTest extends \PHPUnit_Framework_TestCase
 {
@@ -42,9 +43,15 @@ class MultipleConnectionTest extends \PHPUnit_Framework_TestCase
      */
     protected $auditManager = null;
 
-    protected $schemaEntities = array('SimpleThings\EntityAudit\Tests\MultipleConnectionEntity');
+    protected $schemaEntities = array(
+        'SimpleThings\EntityAudit\Tests\MultipleConnectionEntity',
+        'SimpleThings\EntityAudit\Tests\MultipleConnectionRelatedEntity',
+        );
 
-    protected $auditedEntities = array('SimpleThings\EntityAudit\Tests\MultipleConnectionEntity');
+    protected $auditedEntities = array(
+        'SimpleThings\EntityAudit\Tests\MultipleConnectionEntity',
+        'SimpleThings\EntityAudit\Tests\MultipleConnectionRelatedEntity',
+    );
 
     /**
      * @var \PHPUnit_Framework_MockObject_MockObject
@@ -108,19 +115,59 @@ class MultipleConnectionTest extends \PHPUnit_Framework_TestCase
             ->method('executeQuery');
 
         //entity persister uses prepare and then execute on stmt, so only prepare is called
-        $this->mainConnectionInstance->expects($this->exactly(1))
+        $this->mainConnectionInstance->expects($this->exactly(2)) //yes, prepare call is cached
             ->method('prepare')
-            ->with($this->stringContains('INSERT INTO MultipleConnectionEntity'));
+            ->withConsecutive(
+                array($this->stringContains('INSERT INTO MultipleConnectionEntity')),
+                array($this->stringContains('INSERT INTO MultipleConnectionRelatedEntity'))
+            );
+
+        //revision is never inserted into main connection
+        $this->mainConnectionInstance->expects($this->never())
+            ->method('insert');
+
+        //nothing is read from main connection
+        $this->mainConnectionInstance->expects($this->never())
+            ->method('fetchAll');
+        $this->mainConnectionInstance->expects($this->never())
+            ->method('fetchAssoc');
+
+        //insert is used for revision
+        $this->auditConnectionInstance->expects($this->once())
+            ->method('insert');
 
         //ea uses executeUpdate when storing audit results
-        $this->auditConnectionInstance->expects($this->once())
+        $this->auditConnectionInstance->expects($this->exactly(3))
             ->method('executeUpdate')
-            ->with($this->stringContains('INSERT INTO MultipleConnectionEntity_audit'));
+            ->withConsecutive(
+                array($this->stringContains('INSERT INTO MultipleConnectionEntity_audit')),
+                array($this->stringContains('INSERT INTO MultipleConnectionRelatedEntity_audit'))
+            );
+
+        //fetchAll is used by audited collection, fetchAssoc by auditReader
+        $this->auditConnectionInstance->expects($this->once())
+            ->method('fetchAll');
+        $this->auditConnectionInstance->expects($this->once())
+            ->method('fetchAssoc');
 
         $entity = new MultipleConnectionEntity();
 
+        for ($i = 0; $i < 2; $i ++) {
+            $e = new MultipleConnectionRelatedEntity();
+            $e->setParent($entity);
+
+            $this->em->persist($e);
+        }
+
         $this->em->persist($entity);
         $this->em->flush();
+
+        $reader = $this->auditManager->createAuditReader($this->em);
+
+        $audited = $reader->find(get_class($entity), 1, 1);
+
+        $this->assertCount(2, $audited->getRelated());
+        $this->assertInstanceOf('SimpleThings\EntityAudit\Collection\AuditedCollection', $audited->getRelated());
     }
 }
 
@@ -132,8 +179,48 @@ class MultipleConnectionEntity
     /** @ORM\Id @ORM\GeneratedValue(strategy="AUTO") @ORM\Column(type="integer") */
     protected $id;
 
+    /** @ORM\OneToMany(targetEntity="MultipleConnectionRelatedEntity", mappedBy="parent") */
+    protected $related;
+
     public function getId()
     {
         return $this->id;
+    }
+
+    public function getRelated()
+    {
+        return $this->related;
+    }
+
+    public function setRelated($related)
+    {
+        $this->related = $related;
+    }
+}
+
+/**
+ * @ORM\Entity
+ */
+class MultipleConnectionRelatedEntity
+{
+    /** @ORM\Id @ORM\GeneratedValue(strategy="AUTO") @ORM\Column(type="integer") */
+    protected $id;
+
+    /** @ORM\ManyToOne(targetEntity="MultipleConnectionEntity") */
+    protected $parent;
+
+    public function getId()
+    {
+        return $this->id;
+    }
+
+    public function getParent()
+    {
+        return $this->parent;
+    }
+
+    public function setParent($parent)
+    {
+        $this->parent = $parent;
     }
 }
