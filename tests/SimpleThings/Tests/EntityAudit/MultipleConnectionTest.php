@@ -87,7 +87,7 @@ class MultipleConnectionTest extends \PHPUnit_Framework_TestCase
             ->getMock();
 
         $auditConfig = new AuditConfiguration();
-        $auditConfig->setConnection($auditConnectionInstance);
+        $auditConfig->setAuditConnection($auditConnectionInstance);
         $auditConfig->setCurrentUsername("beberlei");
         $auditConfig->setAuditedEntityClasses($this->auditedEntities);
         $auditConfig->setGlobalIgnoreColumns(array('ignoreme'));

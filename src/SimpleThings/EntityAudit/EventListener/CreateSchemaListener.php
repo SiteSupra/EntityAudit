@@ -98,13 +98,13 @@ class CreateSchemaListener implements EventSubscriber
         $pkColumns[] = $this->config->getRevisionFieldName();
         $revisionTable->setPrimaryKey($pkColumns);
 
-        if ($this->config->getConnection()) {
-            $collector = new CreateSchemaSqlCollector($this->config->getConnection()->getDatabasePlatform());
+        if ($this->config->getAuditConnection()) {
+            $collector = new CreateSchemaSqlCollector($this->config->getAuditConnection()->getDatabasePlatform());
 
             $revisionTable->visit($collector);
 
             foreach ($collector->getQueries() as $query) {
-                $this->config->getConnection()->executeQuery($query);
+                $this->config->getAuditConnection()->executeQuery($query);
             }
         } else {
             //Schema::createTable
@@ -136,13 +136,13 @@ class CreateSchemaListener implements EventSubscriber
         $revisionsTable->addColumn('username', 'string');
         $revisionsTable->setPrimaryKey(array('id'));
 
-        if ($this->config->getConnection()) {
-            $collector = new CreateSchemaSqlCollector($this->config->getConnection()->getDatabasePlatform());
+        if ($this->config->getAuditConnection()) {
+            $collector = new CreateSchemaSqlCollector($this->config->getAuditConnection()->getDatabasePlatform());
 
             $revisionsTable->visit($collector);
 
             foreach ($collector->getQueries() as $query) {
-                $this->config->getConnection()->executeQuery($query);
+                $this->config->getAuditConnection()->executeQuery($query);
             }
         } else {
             //Schema::createTable

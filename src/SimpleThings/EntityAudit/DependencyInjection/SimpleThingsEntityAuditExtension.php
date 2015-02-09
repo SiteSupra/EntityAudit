@@ -58,5 +58,13 @@ class SimpleThingsEntityAuditExtension extends Extension
         if (true === $config['listener']['current_username']) {
             $loader->load('current_username.xml');
         }
+
+        if ($config['audit_connection']) {
+            $connection = $container->get('doctrine')->getConnection($config['audit_connection']);
+        } else {
+            $connection = null;
+        }
+
+        $container->setParameter("simplethings.entityaudit.audit_connection", $connection);
     }
 }

@@ -34,16 +34,16 @@ class AuditConfiguration
     private $globalIgnoreColumns = array();
     private $currentUsername = '';
     private $revisionIdFieldType = 'integer';
-    private $connection;
+    private $auditConnection;
 
-    public function getConnection()
+    public function getAuditConnection()
     {
-        return $this->connection;
+        return $this->auditConnection;
     }
 
-    public function setConnection($connection)
+    public function setAuditConnection($connection)
     {
-        $this->connection = $connection;
+        $this->auditConnection = $connection;
     }
 
     public function getTablePrefix()
